@@ -19,6 +19,7 @@
  */
 package org.jetbrains.plugins.spotbugs.actions;
 
+import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.wm.ToolWindow;
@@ -64,5 +65,10 @@ public final class TreePreviousOccurence extends AbstractAction {
 			final ToolWindowPanel panel = (ToolWindowPanel) content.getComponent();
 			panel.getBugTreePanel().getBugTree().goPreviousOccurence();
 		}
+	}
+
+	@Override
+	public @NotNull ActionUpdateThread getActionUpdateThread() {
+		return ActionUpdateThread.EDT;
 	}
 }

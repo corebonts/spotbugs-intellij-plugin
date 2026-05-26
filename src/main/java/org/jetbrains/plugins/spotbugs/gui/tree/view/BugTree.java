@@ -23,11 +23,14 @@ import com.intellij.ide.OccurenceNavigator;
 import com.intellij.openapi.actionSystem.ActionManager;
 import com.intellij.openapi.actionSystem.CommonDataKeys;
 import com.intellij.openapi.actionSystem.DataProvider;
+import com.intellij.openapi.actionSystem.DataSink;
+import com.intellij.openapi.actionSystem.UiDataProvider;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.fileEditor.OpenFileDescriptor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogBuilder;
 import com.intellij.openapi.vfs.VirtualFile;
+import com.intellij.pom.Navigatable;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
 import com.intellij.ui.PopupHandler;
@@ -36,6 +39,7 @@ import com.intellij.util.OpenSourceUtil;
 import com.intellij.util.ui.UIUtil;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.jetbrains.annotations.NonNls;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.plugins.spotbugs.gui.common.AnalysisRunDetailsDialog;
 import org.jetbrains.plugins.spotbugs.gui.tree.BugTreeHelper;
@@ -64,7 +68,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 
 @SuppressFBWarnings("SE_BAD_FIELD")
-public class BugTree extends Tree implements DataProvider, OccurenceNavigator {
+public class BugTree extends Tree implements UiDataProvider, OccurenceNavigator {
 
 	private final BugTreePanel _bugTreePanel;
 	private final Project _project;
@@ -139,6 +143,32 @@ public class BugTree extends Tree implements DataProvider, OccurenceNavigator {
 	}
 
 	@Override
+	public void uiDataSnapshot(@NotNull final DataSink sink) {
+		sink.lazy(CommonDataKeys.PSI_ELEMENT, () -> {
+			final BugInstanceNode node = _treeHelper.getSelectedBugInstanceNode();
+			if (node == null) {
+				return null;
+			}
+			final PsiFile psiFile = node.getPsiFile();
+			if (node.isAnonymousClass() || node.isFirstLines()) {
+				final PsiElement psiElement = IdeaUtilImpl.findPsiElement(psiFile, node.getBugInstance(), _project);
+				if (psiElement != null) {
+					return psiElement;
+				}
+			}
+			return psiFile;
+		});
+		sink.lazy(CommonDataKeys.VIRTUAL_FILE, () -> getSelectedVirtualFile());
+		sink.lazy(CommonDataKeys.NAVIGATABLE, () -> {
+			final Object navigatable = getNavigatableData();
+			return navigatable instanceof Navigatable ? (Navigatable) navigatable : null;
+		});
+		sink.lazy(CommonDataKeys.VIRTUAL_FILE_ARRAY, () -> {
+			final VirtualFile virtualFile = getSelectedVirtualFile();
+			return virtualFile != null ? new VirtualFile[]{virtualFile} : VirtualFile.EMPTY_ARRAY;
+		});
+	}
+
 	public Object getData(@NonNls final String dataId) {
 		if (CommonDataKeys.VIRTUAL_FILE.is(dataId)) {
 			return getSelectedVirtualFile();

@@ -24,6 +24,7 @@ import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.codeInspection.QuickFix;
 import com.intellij.debugger.impl.DebuggerUtilsEx;
 import com.intellij.lang.annotation.ProblemGroup;
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.editor.colors.TextAttributesKey;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
@@ -110,15 +111,19 @@ public class ExtendedProblemDescriptor implements ProblemDescriptor, ProblemGrou
 		if (psiElement != null) {
 			return psiElement;
 		}
-		if (lineStart < 0 || lineStart == 0 && lineEnd == 1) {
-			psiElement = IdeaUtilImpl.findPsiElement(psiFile, bug.getInstance(), psiFile.getProject());
-		} else {
-			psiElement = IdeaUtilImpl.getElementAtLine(psiFile, lineStart);
-		}
-		final MethodAnnotation primaryMethod = BugInstanceUtil.getPrimaryMethod(bug.getInstance());
-		if (primaryMethod != null && DebuggerUtilsEx.isLambdaName(primaryMethod.getMethodName())) {
-			psiElement = IdeaUtilImpl.findOnlyLambdaExpressionOrPsiElement(psiElement);
-		}
+		psiElement = ReadAction.compute(() -> {
+			PsiElement element;
+			if (lineStart < 0 || lineStart == 0 && lineEnd == 1) {
+				element = IdeaUtilImpl.findPsiElement(psiFile, bug.getInstance(), psiFile.getProject());
+			} else {
+				element = IdeaUtilImpl.getElementAtLine(psiFile, lineStart);
+			}
+			final MethodAnnotation primaryMethod = BugInstanceUtil.getPrimaryMethod(bug.getInstance());
+			if (primaryMethod != null && DebuggerUtilsEx.isLambdaName(primaryMethod.getMethodName())) {
+				element = IdeaUtilImpl.findOnlyLambdaExpressionOrPsiElement(element);
+			}
+			return element;
+		});
 		return psiElement;
 	}
 

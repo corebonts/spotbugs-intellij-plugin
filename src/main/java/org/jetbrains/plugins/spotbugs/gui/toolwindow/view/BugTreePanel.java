@@ -20,6 +20,9 @@
 package org.jetbrains.plugins.spotbugs.gui.toolwindow.view;
 
 import com.intellij.debugger.impl.DebuggerUtilsEx;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ReadAction;
+import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.editor.EditorFactory;
@@ -166,14 +169,25 @@ public class BugTreePanel extends JPanel {
 	}
 
 	public void setPreview(@Nullable final TreePath treePath) {
-		boolean clear = true;
-		if (treePath != null && treePath.getLastPathComponent() instanceof BugInstanceNode) {
-			final BugInstanceNode bugInstanceNode = (BugInstanceNode) getTreeNodeFromPath(treePath);
-			if (bugInstanceNode != null) {
-				final PsiFile psiFile = bugInstanceNode.getPsiFile();
-				if (psiFile != null) {
-					final Document document = PsiDocumentManager.getInstance(_project).getDocument(psiFile);
-					if (document != null) {
+		ApplicationManager.getApplication().invokeLater(() -> {
+			boolean clear = true;
+			if (treePath != null && treePath.getLastPathComponent() instanceof BugInstanceNode) {
+				final BugInstanceNode bugInstanceNode = (BugInstanceNode) getTreeNodeFromPath(treePath);
+				if (bugInstanceNode != null) {
+					final Pair<PsiFile, Document> fileAndDoc = ReadAction.compute(() -> {
+						final PsiFile psiFile = bugInstanceNode.getPsiFile();
+						if (psiFile == null) {
+							return null;
+						}
+						final Document document = PsiDocumentManager.getInstance(_project).getDocument(psiFile);
+						if (document == null) {
+							return null;
+						}
+						return Pair.create(psiFile, document);
+					});
+					if (fileAndDoc != null) {
+						final PsiFile psiFile = fileAndDoc.first;
+						final Document document = fileAndDoc.second;
 						final Editor editor = createEditor(bugInstanceNode, psiFile, document);
 						_parent.setPreviewEditor(editor, psiFile);
 						scrollToPreviewSource(bugInstanceNode, editor);
@@ -181,10 +195,10 @@ public class BugTreePanel extends JPanel {
 					}
 				}
 			}
-		}
-		if (clear) {
-			_parent.setPreviewEditor(null, null);
-		}
+			if (clear) {
+				_parent.setPreviewEditor(null, null);
+			}
+		}, _project.getDisposed());
 	}
 
 	@NotNull
@@ -203,30 +217,32 @@ public class BugTreePanel extends JPanel {
 
 		final int lineStart = bugInstanceNode.getSourceLines()[0] - 1;
 		final int lineEnd = bugInstanceNode.getSourceLines()[1];
-		PsiElement element = null;
 
-		if (lineStart < 0 && lineEnd < 0 || lineStart == 0 && lineEnd == 1)  {   // find anonymous classes
-			final PsiElement psiElement = IdeaUtilImpl.findPsiElement(bugInstanceNode.getPsiFile(), bugInstanceNode.getBugInstance(), _project);
-			if (psiElement != null) {
-				element = psiElement;
+		final RangeMarker marker = ReadAction.compute(() -> {
+			PsiElement element = null;
+			if (lineStart < 0 && lineEnd < 0 || lineStart == 0 && lineEnd == 1) {   // find anonymous classes
+				final PsiElement psiElement = IdeaUtilImpl.findPsiElement(bugInstanceNode.getPsiFile(), bugInstanceNode.getBugInstance(), _project);
+				if (psiElement != null) {
+					element = psiElement;
+				}
+			} else {
+				element = IdeaUtilImpl.getElementAtLine(psiFile, lineStart);
 			}
-		} else {
-			element = IdeaUtilImpl.getElementAtLine(psiFile, lineStart);
-		}
 
-		RangeMarker marker = null;
-		if (element != null) {
-			final MethodAnnotation primaryMethod = BugInstanceUtil.getPrimaryMethod(bugInstanceNode.getBugInstance());
-			if (primaryMethod != null && DebuggerUtilsEx.isLambdaName(primaryMethod.getMethodName())) {
-				element = IdeaUtilImpl.findOnlyLambdaExpressionOrPsiElement(element);
+			if (element != null) {
+				final MethodAnnotation primaryMethod = BugInstanceUtil.getPrimaryMethod(bugInstanceNode.getBugInstance());
+				if (primaryMethod != null && DebuggerUtilsEx.isLambdaName(primaryMethod.getMethodName())) {
+					element = IdeaUtilImpl.findOnlyLambdaExpressionOrPsiElement(element);
+				}
+				return document.createRangeMarker(element.getTextRange());
+			} else if (lineStart >= 0 && lineEnd >= 0) {
+				final int lineCount = document.getLineCount();
+				if (lineStart < lineCount && lineEnd < lineCount) {
+					return document.createRangeMarker(document.getLineStartOffset(lineStart), document.getLineEndOffset(lineEnd));
+				} // else document was changed
 			}
-			marker = document.createRangeMarker(element.getTextRange());
-		} else if (lineStart >= 0 && lineEnd >= 0) {
-			final int lineCount = document.getLineCount();
-			if (lineStart < lineCount && lineEnd < lineCount) {
-				marker = document.createRangeMarker(document.getLineStartOffset(lineStart), document.getLineEndOffset(lineEnd));
-			} // else document was changed
-		}
+			return null;
+		});
 
 		if (marker != null) {
 			editor.getMarkupModel().addRangeHighlighter(marker.getStartOffset(), marker.getEndOffset(), HighlighterLayer.FIRST - 1, new TextAttributes(null, null, JBColor.RED, EffectType.BOXED, Font.BOLD), HighlighterTargetArea.EXACT_RANGE);

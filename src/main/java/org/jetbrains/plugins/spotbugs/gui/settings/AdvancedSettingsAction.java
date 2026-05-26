@@ -22,6 +22,7 @@ package org.jetbrains.plugins.spotbugs.gui.settings;
 import com.intellij.icons.AllIcons;
 import com.intellij.ide.actions.RevealFileAction;
 import com.intellij.ide.highlighter.XmlFileType;
+import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
@@ -221,6 +222,11 @@ final class AdvancedSettingsAction extends DefaultActionGroup {
 		@Override
 		public void update(@NotNull final AnActionEvent e) {
 			e.getPresentation().setEnabled(enabled);
+		}
+
+		@Override
+		public @NotNull ActionUpdateThread getActionUpdateThread() {
+			return ActionUpdateThread.BGT;
 		}
 
 		@Override

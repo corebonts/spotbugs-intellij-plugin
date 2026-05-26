@@ -89,10 +89,10 @@ public class BugInstanceNode extends AbstractTreeNode<VisitableTreeNode> impleme
 	@Nullable
 	public PsiFile getPsiFile() {
 		if (_file == null) {
-			final PsiClass psiClass = IdeaUtilImpl.findJavaPsiClass(_project, getBug().getModule(), getSourcePath());
-			if (psiClass != null) {
-				_file = psiClass.getContainingFile();
-			}
+			_file = com.intellij.openapi.application.ReadAction.compute(() -> {
+				final PsiClass psiClass = IdeaUtilImpl.findJavaPsiClass(_project, getBug().getModule(), getSourcePath());
+				return psiClass != null ? psiClass.getContainingFile() : null;
+			});
 		}
 		return _file;
 	}

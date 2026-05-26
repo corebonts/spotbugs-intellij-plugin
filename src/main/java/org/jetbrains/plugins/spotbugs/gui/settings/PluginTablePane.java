@@ -123,7 +123,7 @@ final class PluginTablePane extends JPanel {
 
 	private void doAdd(@NotNull final AnActionButton anActionButton) {
 		final Project project = IdeaUtilImpl.getProject(anActionButton.getDataContext());
-		if (bundled.isEmpty()) {
+		if (bundled == null || bundled.isEmpty()) {
 			doAddWithFileChooser(project);
 		} else {
 			// like com.intellij.codeInsight.template.impl.TemplateListPanel#addTemplateOrGroup

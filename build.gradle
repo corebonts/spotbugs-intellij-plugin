@@ -22,7 +22,7 @@
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 
 buildscript {
-    ext.kotlin_version = '2.1.10'
+    ext.kotlin_version = '2.3.0'
     repositories {
         mavenCentral()
     }
@@ -32,7 +32,7 @@ buildscript {
 }
 
 plugins {
-    id "org.jetbrains.intellij.platform" version "2.2.1"
+    id "org.jetbrains.intellij.platform" version "2.16.0"
     id 'jacoco'
 }
 
@@ -72,17 +72,16 @@ configurations {
 
 dependencies {
     intellijPlatform {
-        def type = providers.gradleProperty('platformType')
         def version = providers.gradleProperty('platformVersion')
 
-        create(type, version)
+        intellijIdea(version)
 
         bundledPlugin 'com.intellij.java'
 
         testFramework TestFrameworkType.Platform.INSTANCE
         testFramework TestFrameworkType.Plugin.Java.INSTANCE
     }
-    implementation ('com.github.spotbugs:spotbugs:4.9.0') {
+    implementation ('com.github.spotbugs:spotbugs:4.9.8') {
         exclude group: 'xml-apis', module: 'xml-apis'
         exclude group: 'org.apache.logging.log4j', module: 'log4j-api'
         exclude group: 'org.apache.logging.log4j', module: 'log4j-core'
@@ -94,8 +93,8 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.assertj:assertj-core:3.27.3'
     testImplementation 'org.mockito:mockito-core:5.15.2'
-    thirdPartyPlugins 'com.mebigfatguy.fb-contrib:fb-contrib:7.6.9'
-    thirdPartyPlugins 'com.h3xstream.findsecbugs:findsecbugs-plugin:1.13.0'
+    thirdPartyPlugins 'com.mebigfatguy.fb-contrib:fb-contrib:7.7.4'
+    thirdPartyPlugins 'com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0'
     fbContribJava6 'com.mebigfatguy.fb-contrib:fb-contrib:6.2.1'
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 }
@@ -131,11 +130,13 @@ tasks.jacocoTestReport.dependsOn(deleteThirdPartyPlugins)
 tasks.jacocoTestCoverageVerification.dependsOn(deleteThirdPartyPlugins)
 
 test {
-    def ideaHomePath = System.getenv().get('IDEA_HOME_PATH') ?: project.findProperty('idea.home.path')
-    if (ideaHomePath == null) {
-        throw new RuntimeException("Please set the 'idea.home.path' property at gradle.properties")
+    doFirst {
+        def ideaHomePath = System.getenv().get('IDEA_HOME_PATH') ?: project.findProperty('idea.home.path')
+        if (ideaHomePath == null) {
+            throw new RuntimeException("Please set the 'idea.home.path' property at gradle.properties")
+        }
+        systemProperty "idea.home.path", ideaHomePath
     }
-    systemProperty "idea.home.path", ideaHomePath
     finalizedBy jacocoTestReport
 }
 
@@ -153,5 +154,5 @@ wrapper {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 }
